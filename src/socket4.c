@@ -53,18 +53,23 @@ int open_ping_socket_ipv4(int *socktype)
 {
     struct protoent* proto;
     int s;
+    int icmp_proto;
 
     /* confirm that ICMP is available on this machine */
-    if ((proto = getprotobyname("icmp")) == NULL)
-        crash_and_burn("icmp: unknown protocol");
+    if ((proto = getprotobyname("icmp")) == NULL) {
+        /* fallback to hardcoded protocol number for systems without /etc/protocols (e.g., Android) */
+        icmp_proto = 1; /* IPPROTO_ICMP */
+    } else {
+        icmp_proto = proto->p_proto;
+    }
 
     /* create raw socket for ICMP calls (ping) */
     *socktype = SOCK_RAW;
-    s = socket(AF_INET, *socktype, proto->p_proto);
+    s = socket(AF_INET, *socktype, icmp_proto);
     if (s < 0) {
         /* try non-privileged icmp (works on Mac OSX without privileges, for example) */
         *socktype = SOCK_DGRAM;
-        s = socket(AF_INET, *socktype, proto->p_proto);
+        s = socket(AF_INET, *socktype, icmp_proto);
         if (s < 0) {
             return -1;
         }
